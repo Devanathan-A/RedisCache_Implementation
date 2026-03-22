@@ -74,9 +74,58 @@ namespace RedisCache_Implementation.DataAccessLayer
             throw new NotImplementedException();
         }
 
-        public Task<GetInformationResponse> GetInformation(GetInformationRequest request)
+        public async Task<GetInformationResponse> GetInformation()
         {
-            throw new NotImplementedException();
+            GetInformationResponse response = new GetInformationResponse();
+            response.IsSuccess = true;
+            response.Message = "Information retrieved successfully.";
+
+            try
+            {
+                if(_connection.State != ConnectionState.Open)
+                    await _connection.OpenAsync();
+
+                string query = "SELECT * FROM USERINFO";
+
+                using (SqlCommand command = new SqlCommand(query, _connection))
+                {
+                    command.CommandType = CommandType.Text;
+                    command.CommandTimeout = 30;
+
+                    using (SqlDataReader reader = await command.ExecuteReaderAsync())
+                    {
+                        if (reader.HasRows)
+                        {
+                            response.data = new List<GetInformation>();
+
+                            while(await reader.ReadAsync())
+                            {
+                                GetInformation getData = new GetInformation();
+                                getData.UserName = reader["UserName"] != DBNull.Value ? reader["UserName"].ToString() : string.Empty;
+                                getData.EmailID = reader["EmailID"] != DBNull.Value ? reader["EmailID"].ToString() : string.Empty;
+                                getData.MobileNumber = reader["MobileNumber"] != DBNull.Value ? reader["MobileNumber"].ToString() : String.Empty;
+                                getData.Salary = reader["Salary"] != DBNull.Value ? Convert.ToInt32(reader["Salary"]) : -1;
+                                getData.Gender = reader["Gender"] != DBNull.Value ? reader["Gender"].ToString() : String.Empty;
+
+                                response.data.Add(getData);
+
+                            }
+                        }
+                    }
+                }
+            }
+            catch(Exception ex)
+            {
+                response.IsSuccess = false;
+                response.Message = ex.Message;
+            }
+            finally
+            {
+                await _connection.CloseAsync();
+                await _connection.DisposeAsync();
+            }
+
+            return response;
         }
 
         public Task<RefreshRecordTimeResponse> RefreshRecordTime()

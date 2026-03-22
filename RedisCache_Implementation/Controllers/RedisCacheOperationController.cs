@@ -1,7 +1,9 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Caching.Distributed;
+using Newtonsoft.Json;
 using RedisCache_Implementation.DataAccessLayer;
 using RedisCache_Implementation.Models;
+using System.Text;
 
 namespace RedisCache_Implementation.Controllers
 {
@@ -26,7 +28,41 @@ namespace RedisCache_Implementation.Controllers
 
             response.IsSuccess = true;
             response.Message = "Data Fetched Successfully";
-            response.data = null;
+
+            try
+            {
+                string SerializeList = string.Empty;
+                var EncodedList = await _distributedCache.GetAsync(RedisCacheKey);
+                if (EncodedList != null)
+                {
+                    await _distributedCache.RemoveAsync(RedisCacheKey);
+                    response.data = new List<GetInformation>();
+                    SerializeList = Encoding.UTF8.GetString(EncodedList);
+                    response.data = JsonConvert.DeserializeObject<List<GetInformation>>(SerializeList);
+                }
+                else
+                {
+                    response = await _redisCacheOperationDL.GetInformation();
+                    if (response.IsSuccess)
+                    {
+                        SerializeList = JsonConvert.SerializeObject(response.data);
+                        EncodedList = Encoding.UTF8.GetBytes(SerializeList);
+
+                        var Option = new DistributedCacheEntryOptions()
+                            .SetSlidingExpiration(TimeSpan.FromMinutes(40))
+                            .SetAbsoluteExpiration(DateTime.Now.AddHours(6));
+
+                        await _distributedCache.SetAsync(RedisCacheKey, EncodedList, Option);
+
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+
+                response.IsSuccess = false;
+                response.Message = ex.Message;
+            }
 
             return Ok(response);
 
