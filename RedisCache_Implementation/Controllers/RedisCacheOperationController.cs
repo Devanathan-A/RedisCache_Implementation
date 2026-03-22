@@ -116,11 +116,23 @@ namespace RedisCache_Implementation.Controllers
         [HttpGet]
         public async Task<IActionResult> RefreshRecordTime()
         {
-            GetInformationResponse response = new GetInformationResponse();
+            RefreshRecordTimeResponse response = new RefreshRecordTimeResponse();
 
-            response.IsSuccess = true;
-            response.Message = "Data Fetched Successfully";
-            response.data = null;
+            try
+            {
+                response = await _redisCacheOperationDL.RefreshRecordTime();
+
+                if(response.IsSuccess)
+                {
+                    await _distributedCache.RefreshAsync(RedisCacheKey);
+                    response.Message = "Record Time Refreshed Successfully";
+                }
+            }
+            catch (Exception ex)
+            {
+                response.IsSuccess = false;
+                response.Message = ex.Message;
+            }
 
             return Ok(response);
 

@@ -18,10 +18,6 @@ namespace RedisCache_Implementation.DataAccessLayer
             _connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
         }
 
-
-
-
-
         public async Task<AddInformationResponse> AddInformation(AddInformationRequest request)
         {
             AddInformationResponse response = new AddInformationResponse();
@@ -128,9 +124,52 @@ namespace RedisCache_Implementation.DataAccessLayer
             return response;
         }
 
-        public Task<RefreshRecordTimeResponse> RefreshRecordTime()
+        public async Task<RefreshRecordTimeResponse> RefreshRecordTime()
         {
-            throw new NotImplementedException();
+            RefreshRecordTimeResponse response = new RefreshRecordTimeResponse()
+            {
+                IsSuccess = true,
+                Message = "Record time refreshed successfully."
+            };
+
+            try
+            {
+                if (_connection.State != ConnectionState.Open)
+                    _connection.Open();
+
+                string query = "Select UserName From UserInfo";
+
+                using (SqlCommand command = new SqlCommand(query, _connection))
+                {
+                    command.CommandType = CommandType.Text;
+                    command.CommandTimeout = 30;
+                    using (SqlDataReader reader = await command.ExecuteReaderAsync())
+                    {
+                        if (reader.HasRows)
+                        {
+                            response.IsSuccess = true;
+                        }
+                        else
+                        {
+                            response.IsSuccess = false;
+                            response.Message = "No records found to refresh.";
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                response.IsSuccess = false;
+                response.Message = $"Error: {ex.Message}";
+            }
+            finally
+            {
+                await _connection.CloseAsync();
+                await _connection.DisposeAsync();
+
+            }
+
+            return response;
         }
 
         public Task<UpdateInformationResponse> UpdateInformation(UpdateInformationRequest request)
